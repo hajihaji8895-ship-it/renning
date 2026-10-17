@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ランニング・ペース計算＆記録アプリ</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --border: #cbd5e1;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+    }
+    h1 {
+      font-size: 1.3rem;
+      text-align: center;
+      margin-bottom: 15px;
+      color: var(--primary);
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-weight: bold;
+      font-size: 1rem;
+      margin-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 5px;
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      box-sizing: border-box;
+      font-size: 0.95rem;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    .time-inputs {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .time-inputs input {
+      text-align: center;
+    }
+    button.submit-btn {
+      width: 100%;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    button.submit-btn:hover { background-color: var(--primary-hover); }
+    
+    .result-box {
+      margin-top: 15px;
+      background: #eef6ff;
+      border: 1px solid #bae6fd;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      display: none;
+    }
+    .result-value {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary);
+      margin-top: 5px;
+    }
+    .split-table {
+      width: 100%;
+      margin-top: 10px;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .split-table th, .split-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px;
+      text-align: center;
+    }
+    .split-table th {
+      background: #f1f5f9;
+    }
+    .prediction-list {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+    
+    /* 履歴・メモ一覧 */
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .history-item {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+    }
+    .history-header {
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .del-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .del-btn:hover { background: #dc2626; }
+  </style>
+</head>
+<body>
+
+  <h1>🏃‍♂️ ランニング・ペース計算＆記録アプリ</h1>
+
+  <!-- 機能1＆2：ペース計算とスプリット・予測 -->
+  <div class="card">
+    <div class="card-title">1. ペース計算・目標スプリット・予測</div>
+    
+    <div class="form-group">
+      <label for="distance">距離</label>
+      <select id="distance">
+        <option value="1">1 km</option>
+        <option value="3">3 km</option>
+        <option value="5" selected>5 km</option>
+        <option value="10">10 km</option>
+        <option value="21.0975">ハーフマラソン (21.1km)</option>
+        <option value="42.195">フルマラソン (42.2km)</option>
+        <option value="custom">自由入力</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="customDistanceGroup" style="display:none;">
+      <label for="customDistance">距離 (km)</label>
+      <input type="number" id="customDistance" step="0.1" placeholder="例: 7.5">
+    </div>
+
+    <div class="form-group">
+      <label>タイム（時間・分・秒）</label>
+      <div class="time-inputs">
+        <input type="number" id="hours" value="0" min="0">時間
+        <input type="number" id="minutes" value="25" min="0" max="59">分
+        <input type="number" id="seconds" value="0" min="0" max="59">秒
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" onclick="calculateAll()">計算・予測する</button>
+
+    <div id="resultBox" class="result-box">
+      <div style="font-size: 0.85rem; color: #334155; font-weight: bold;">平均ペース (1kmあたり)</div>
+      <div class="result-value" id="paceResult">-</div>
+
+      <!-- 機能2：タイム予測 -->
+      <div style="margin-top: 15px; text-align: left; border-top: 1px dashed #bae6fd; padding-top: 10px;">
+        <div style="font-weight: bold; font-size: 0.85rem; color: #0369a1;">🔮 距離別 タイム予測</div>
+        <div class="prediction-list" id="predictionList"></div>
+      </div>
+
+      <!-- 機能1：目標スプリット一覧 -->
+      <div style="margin-top: 15px; text-align: left; border-top: 1px dashed #bae6fd; padding-top: 10px;">
+        <div style="font-weight: bold; font-size: 0.85rem; color: #0369a1;">📋 1kmごとの通過タイム (スプリット)</div>
+        <div style="max-height: 150px; overflow-y: auto; margin-top: 5px;">
+          <table class="split-table" id="splitTable">
+            <thead>
+              <tr><th>km</th><th>ラップ</th><th>経過時間</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 機能3：シューズ・練習メモ記録 -->
+  <div class="card">
+    <div class="card-title">2. シューズ・練習メモの記録</div>
+    <form id="memoForm">
+      <div class="form-group">
+        <label for="runDate">日付</label>
+        <input type="date" id="runDate" required>
+      </div>
+      <div class="form-group">
+        <label for="shoeName">使用シューズ</label>
+        <input type="text" id="shoeName" placeholder="例: ナイキ ヴェイパーフライ、エアズームペガサス" required>
+      </div>
+      <div class="form-group">
+        <label for="runMemo">メモ（体調、ソール削れ具合、感想など）</label>
+        <textarea id="runMemo" placeholder="例: 5km走。足の疲れ少なめ。アウトソール踵が少し削れてきた。"></textarea>
+      </div>
+      <button type="submit" class="submit-btn" style="background-color: #16a34a;">メモを保存する</button>
+    </form>
+  </div>
+
+  <!-- 記録一覧 -->
+  <div class="card">
+    <div class="card-title">保存した練習・シューズ履歴</div>
+    <ul class="history-list" id="historyList"></ul>
+  </div>
+
+  <!-- アフィリエイト広告エリア -->
+  <div class="card" style="text-align: center; font-size: 0.85rem;">
+    <div class="card-title" style="font-size: 0.9rem; color: #64748b;">おすすめランニング情報</div>
+    <div style="margin-bottom: 12px;">
+      <a href="https://px.a8.net/svt/ejp?a8mat=4BEGDB+DBVI7U+4ABU+6G4HD" rel="nofollow">
+      <img border="0" width="120" height="60" alt="" src="https://www20.a8.net/svt/bgt?aid=261014879806&wid=006&eno=01&mid=s00000020001001083000&mc=1"></a>
+      <img border="0" width="1" height="1" src="https://www15.a8.net/0.gif?a8mat=4BEGDB+DBVI7U+4ABU+6G4HD" alt="">
+    </div>
+    <div>
+      <a href="https://px.a8.net/svt/ejp?a8mat=4BEGDB+D9HRSQ+5GZE+BWVTE" rel="nofollow">アメリカでシェアNO.1のランニングシューズブランド【BROOKS】</a>
+      <img border="0" width="1" height="1" src="https://www13.a8.net/0.gif?a8mat=4BEGDB+D9HRSQ+5GZE+BWVTE" alt="">
+    </div>
+  </div>
+
+  <script>
+    // 日付の初期値設定
+    document.getElementById('runDate').value = new Date().toISOString().split('T')[0];
+
+    let histories = JSON.parse(localStorage.getItem('running_histories')) || [];
+
+    document.getElementById('distance').addEventListener('change', (e) => {
+      const customGroup = document.getElementById('customDistanceGroup');
+      if (e.target.value === 'custom') {
+        customGroup.style.display = 'block';
+      } else {
+        customGroup.style.display = 'none';
+      }
+    });
+
+    function calculateAll() {
+      const distSelect = document.getElementById('distance').value;
+      let km = distSelect === 'custom' ? parseFloat(document.getElementById('customDistance').value) : parseFloat(distSelect);
+
+      if (!km || km <= 0) {
+        alert('正しい距離を入力してください');
+        return;
+      }
+
+      const h = parseInt(document.getElementById('hours').value) || 0;
+      const m = parseInt(document.getElementById('minutes').value) || 0;
+      const s = parseInt(document.getElementById('seconds').value) || 0;
+      const totalSeconds = h * 3600 + m * 60 + s;
+
+      if (totalSeconds <= 0) {
+        alert('正しいタイムを入力してください');
+        return;
+      }
+
+      // 平均ペース計算
+      const paceSecPerKm = totalSeconds / km;
+      const pMin = Math.floor(paceSecPerKm / 60);
+      const pSec = Math.round(paceSecPerKm % 60);
+      document.getElementById('paceResult').textContent = `${pMin}分 ${String(pSec).padStart(2, '0')}秒 / km`;
+
+      // 予測計算（Riegelの公式 T2 = T1 * (D2/D1)^1.06 を簡易適用）
+      const predList = document.getElementById('predictionList');
+      predList.innerHTML = '';
+      const targets = [ {name: '5km', dist: 5}, {name: '10km', dist: 10}, {name: 'ハーフ', dist: 21.0975}, {name: 'フル', dist: 42.195} ];
+      
+      targets.forEach(t => {
+        const predSec = totalSeconds * Math.pow((t.dist / km), 1.06);
+        const predH = Math.floor(predSec / 3600);
+        const predM = Math.floor((predSec % 3600) / 60);
+        const predS = Math.round(predSec % 60);
+        const timeStr = predH > 0 ? `${predH}時間${predM}分${predS}秒` : `${predM}分${predS}秒`;
+        predList.innerHTML += `・${t.name}予測: <b>${timeStr}</b><br>`;
+      });
+
+      // スプリット一覧生成
+      const splitBody = document.querySelector('#splitTable tbody');
+      splitBody.innerHTML = '';
+      const totalKmInt = Math.ceil(km);
+      let cumulativeSec = 0;
+
+      for (let i = 1; i <= totalKmInt; i++) {
+        let span = (i === totalKmInt && km % 1 !== 0) ? (km % 1) : 1.0;
+        let secThisKm = paceSecPerKm * span;
+        cumulativeSec += secThisKm;
+
+        let lapM = Math.floor(secThisKm / 60);
+        let lapS = Math.round(secThisKm % 60);
+        let cumM = Math.floor(cumulativeSec / 60);
+        let cumS = Math.round(cumulativeSec % 60);
+
+        let labelKm = (i === totalKmInt && km % 1 !== 0) ? `${i} (goal)` : `${i}`;
+        splitBody.innerHTML += `<tr><td>${labelKm}</td><td>${lapM}分${String(lapS).padStart(2,'0')}秒</td><td>${cumM}分${String(cumS).padStart(2,'0')}秒</td></tr>`;
+      }
+
+      document.getElementById('resultBox').style.display = 'block';
+    }
+
+    // 履歴保存処理
+    const memoForm = document.getElementById('memoForm');
+    memoForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const newHistory = {
+        id: Date.now(),
+        date: document.getElementById('runDate').value,
+        shoe: document.getElementById('shoeName').value,
+        memo: document.getElementById('runMemo').value
+      };
+
+      histories.unshift(newHistory);
+      localStorage.setItem('running_histories', JSON.stringify(histories));
+
+      document.getElementById('shoeName').value = '';
+      document.getElementById('runMemo').value = '';
+      renderHistory();
+    });
+
+    window.deleteHistory = function(id) {
+      if (confirm('この記録を削除しますか？')) {
+        histories = histories.filter(item => item.id !== id);
+        localStorage.setItem('running_histories', JSON.stringify(histories));
+        renderHistory();
+      }
+    };
+
+    function renderHistory() {
+      const listEl = document.getElementById('historyList');
+      listEl.innerHTML = '';
+
+      if (histories.length === 0) {
+        listEl.innerHTML = '<li style="text-align:center; color:#94a3b8; padding:10px 0; font-size:0.85rem;">保存された記録はありません</li>';
+        return;
+      }
+
+      histories.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        li.innerHTML = `
+          <div class="history-header">📅 ${item.date} ｜ 👟 ${escapeHtml(item.shoe)}</div>
+          <div>${escapeHtml(item.memo)}</div>
+          <button class="del-btn" onclick="deleteHistory(${item.id})">削除</button>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    renderHistory();
+  </script>
+<!-- 関連ツールリンクエリア --><div style="margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-radius: 8px;">
+  <h3 style="font-size: 16px; margin-bottom: 10px;">便利な関連ツール</h3>
+  <ul style="list-style: none; padding-left: 0; line-height: 1.8;">
+    <li>👉 <a href="https://konetu.pages.dev/">光熱費管理</a></li>
+    <li>👉 <a href="https://shoumikigen.pages.dev/">賞味期限管理</a></li>
+    <li>👉 <a href="https://kaimono-4nt.pages.dev/">買い物リスト</a></li>
+    <li>👉 <a href="https://poinnto.pages.dev/">ポイ活管理</a></li>
+    <li>👉 <a href="https://souji-aap.pages.dev/">掃除管理</a></li>
+  </ul></div>
+</body>
+</html>
